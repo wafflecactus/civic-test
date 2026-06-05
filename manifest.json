@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Civics Quiz">
+<meta name="theme-color" content="#7c6af7">
+<meta name="description" content="Practice all 128 official USCIS civics test questions with voice recognition">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<title>U.S. Civics Quiz</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0f; --surface:#111118; --card:#181824; --border:#252538;
+  --accent:#7c6af7; --accent2:#f76a8f; --green:#4ade80; --red:#f87171;
+  --amber:#fbbf24; --text:#e8e8f0; --muted:#5a5a7a; --glow:rgba(124,106,247,0.12);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --radius: 20px;
+  --touch: 56px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{height:100%;overscroll-behavior:none;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'Syne',sans-serif;
+  height:100%; min-height:100dvh;
+  display:flex; flex-direction:column;
+  overflow:hidden;
+  padding-top:var(--safe-top);
+  padding-bottom:var(--safe-bottom);
+}
+
+/* Background grid */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(124,106,247,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(124,106,247,.025) 1px,transparent 1px);
+  background-size:36px 36px;
+  pointer-events:none;z-index:0;
+}
+
+/* Glow orbs */
+.orb{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;opacity:.35;}
+.orb1{width:300px;height:300px;background:var(--accent);top:-80px;right:-80px;}
+.orb2{width:260px;height:260px;background:var(--accent2);bottom:80px;left:-100px;}
+
+.app{
+  position:relative;z-index:1;
+  display:flex;flex-direction:column;
+  height:100dvh;
+  overflow:hidden;
+}
+
+/* ===== SCREENS ===== */
+.screen{display:none;flex-direction:column;flex:1;overflow:hidden;}
+.screen.active{display:flex;}
+
+/* ===== HEADER ===== */
+.top-bar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 20px 10px;
+  flex-shrink:0;
+}
+.logo{font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:7px;}
+.logo-dot{width:5px;height:5px;background:var(--accent2);border-radius:50%;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.score-pill{font-family:'DM Mono',monospace;font-size:12px;background:var(--card);border:1px solid var(--border);padding:6px 14px;border-radius:100px;color:var(--muted);}
+.score-pill span{color:var(--accent);}
+
+/* ===== MENU SCREEN ===== */
+.menu-scroll{flex:1;overflow-y:auto;padding:4px 20px 24px;-webkit-overflow-scrolling:touch;}
+.menu-scroll::-webkit-scrollbar{display:none;}
+
+.hero{margin-bottom:28px;}
+.hero h1{font-size:36px;font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:8px;}
+.hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hero p{color:var(--muted);font-size:12px;font-family:'DM Mono',monospace;letter-spacing:.05em;}
+
+.sec-label{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;font-family:'DM Mono',monospace;}
+
+/* Mode toggle */
+.mode-pills{display:flex;gap:8px;margin-bottom:22px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:5px;}
+.mode-pill{flex:1;padding:12px 8px;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;color:var(--muted);background:transparent;display:flex;align-items:center;justify-content:center;gap:6px;}
+.mode-pill.active{background:var(--accent);color:white;box-shadow:0 4px 16px rgba(124,106,247,.4);}
+
+/* Category chips */
+.cat-wrap{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:22px;}
+.chip{background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:8px 14px;font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;color:var(--muted);transition:all .2s;user-select:none;}
+.chip.on{border-color:var(--accent);color:var(--accent);background:rgba(124,106,247,.1);font-weight:700;}
+
+/* Count */
+.count-row{display:flex;align-items:center;gap:12px;margin-bottom:28px;}
+.count-lbl{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap;}
+input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--border);border-radius:4px;outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 2px 10px rgba(124,106,247,.5);}
+.count-val{font-size:15px;font-family:'DM Mono',monospace;color:var(--accent);min-width:32px;text-align:right;font-weight:700;}
+
+.btn-go{
+  width:100%;padding:19px;
+  background:linear-gradient(135deg,var(--accent),#a594f9);
+  border:none;border-radius:var(--radius);
+  color:white;font-family:'Syne',sans-serif;font-size:17px;font-weight:800;
+  letter-spacing:.04em;cursor:pointer;
+  box-shadow:0 6px 28px rgba(124,106,247,.45);
+  transition:transform .15s, box-shadow .15s;
+  position:relative;overflow:hidden;
+}
+.btn-go:active{transform:scale(.97);box-shadow:0 2px 12px rgba(124,106,247,.3);}
+.btn-go::after{content:'→';margin-left:8px;}
+
+/* ===== QUIZ SCREEN ===== */
+.quiz-top{padding:0 20px 12px;flex-shrink:0;}
+.prog-row{display:flex;align-items:center;gap:12px;}
+.prog-track{flex:1;height:4px;background:var(--border);border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width .4s ease;}
+.prog-txt{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;}
+
+/* Question card */
+.q-card{
+  margin:0 16px 14px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:24px 22px;
+  position:relative;overflow:hidden;
+  flex-shrink:0;
+  animation:cardIn .4s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes cardIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.q-card::before{content:'';position:absolute;top:-40px;right:-40px;width:120px;height:120px;background:radial-gradient(circle,var(--glow),transparent 70%);border-radius:50%;}
+.q-meta{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.q-num{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);opacity:.8;}
+.q-cat{font-family:'DM Mono',monospace;font-size:10px;background:rgba(247,106,143,.1);color:var(--accent2);border:1px solid rgba(247,106,143,.2);padding:3px 9px;border-radius:100px;}
+.q-text{font-size:clamp(17px,4vw,22px);font-weight:700;letter-spacing:-.02em;line-height:1.3;margin-bottom:0;}
+.result-badge{position:absolute;top:14px;right:14px;padding:4px 10px;border-radius:100px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;display:none;animation:pop .35s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes pop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
+.result-badge.ok{background:rgba(74,222,128,.15);color:var(--green);border:1px solid var(--green);display:block;}
+.result-badge.no{background:rgba(248,113,113,.15);color:var(--red);border:1px solid var(--red);display:block;}
+.result-badge.sk{background:rgba(90,90,122,.15);color:var(--muted);border:1px solid var(--muted);display:block;}
+
+/* Scrollable area below card */
+.quiz-scroll{flex:1;overflow-y:auto;padding:0 16px;-webkit-overflow-scrolling:touch;}
+.quiz-scroll::-webkit-scrollbar{display:none;}
+
+/* Answer input */
+.input-wrap{margin-bottom:12px;}
+.input-box{
+  width:100%;padding:15px 18px;
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:14px;
+  color:var(--text);font-family:'DM Mono',monospace;font-size:15px;
+  outline:none;transition:border-color .2s;
+}
+.input-box::placeholder{color:var(--muted);}
+.input-box:focus{border-color:var(--accent);}
+.input-box:disabled{opacity:.45;}
+.submit-btn{
+  width:100%;margin-top:8px;padding:15px;
+  background:var(--surface);border:1.5px solid var(--accent);
+  border-radius:14px;
+  color:var(--accent);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;
+  cursor:pointer;transition:all .2s;letter-spacing:.04em;
+}
+.submit-btn:active:not(:disabled){background:rgba(124,106,247,.15);}
+.submit-btn:disabled{opacity:.35;cursor:not-allowed;}
+
+/* Voice strip */
+.voice-strip{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:14px;padding:14px 16px;
+  display:flex;align-items:center;gap:10px;
+  font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);
+  transition:all .25s;min-height:50px;margin-bottom:12px;
+}
+.voice-strip.listening{border-color:var(--accent2);color:var(--accent2);}
+.voice-strip.ok{border-color:var(--green);background:rgba(74,222,128,.05);color:var(--green);}
+.voice-strip.no{border-color:var(--red);background:rgba(248,113,113,.05);color:var(--red);}
+.voice-strip.has{color:var(--text);border-color:var(--border);}
+.v-icon{font-size:16px;flex-shrink:0;}
+
+/* Answer reveal */
+.reveal{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:14px;padding:16px 18px;
+  display:none;margin-bottom:12px;
+  animation:fadeUp .3s ease both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.reveal.show{display:block;}
+.reveal-lbl{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:8px;}
+.reveal-main{font-size:16px;font-weight:700;color:var(--text);line-height:1.4;}
+.reveal-also{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:6px;line-height:1.6;}
+
+/* Bottom action buttons */
+.quiz-actions{
+  display:flex;gap:8px;
+  padding:12px 16px 16px;
+  flex-shrink:0;
+  background:linear-gradient(to top, var(--bg) 70%, transparent);
+}
+.act-btn{
+  flex:1;min-height:var(--touch);
+  border-radius:16px;border:1.5px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  cursor:pointer;transition:all .15s;
+  font-family:'Syne',sans-serif;
+}
+.act-btn:active:not(:disabled){transform:scale(.94);}
+.act-btn:disabled{opacity:.3;cursor:not-allowed;}
+.act-icon{font-size:24px;line-height:1;}
+.act-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+
+.act-speak{background:rgba(247,106,143,.1);color:var(--accent2);border-color:rgba(247,106,143,.3);}
+.act-speak.rec{animation:glow 1s infinite;}
+@keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(247,106,143,.5)}50%{box-shadow:0 0 0 10px rgba(247,106,143,0)}}
+.act-show{background:rgba(124,106,247,.1);color:var(--accent);border-color:rgba(124,106,247,.3);}
+.act-next{background:rgba(74,222,128,.1);color:var(--green);border-color:rgba(74,222,128,.3);}
+.act-next.big{flex:1.4;background:linear-gradient(135deg,rgba(74,222,128,.15),rgba(74,222,128,.05));}
+
+/* ===== RESULTS SCREEN ===== */
+.results-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;gap:18px;overflow-y:auto;}
+.results-body::-webkit-scrollbar{display:none;}
+.r-emoji{font-size:72px;animation:bounce .6s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes bounce{from{transform:scale(0) rotate(-15deg)}to{transform:scale(1) rotate(0)}}
+.r-title{font-size:30px;font-weight:800;letter-spacing:-.03em;}
+.r-pct{font-family:'DM Mono',monospace;font-size:72px;font-weight:300;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;}
+.r-sub{color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;}
+.pass-chip{padding:8px 20px;border-radius:100px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;}
+.pass-chip.y{background:rgba(74,222,128,.15);color:var(--green);border:1.5px solid var(--green);}
+.pass-chip.n{background:rgba(248,113,113,.15);color:var(--red);border:1.5px solid var(--red);}
+.r-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;width:100%;}
+.r-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 12px;text-align:center;}
+.r-num{font-size:30px;font-weight:800;letter-spacing:-.02em;}
+.r-num.c{color:var(--green);}
+.r-num.w{color:var(--red);}
+.r-num.s{color:var(--muted);}
+.r-lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px;}
+.r-btns{display:flex;gap:10px;width:100%;}
+.btn-again,.btn-back{flex:1;padding:17px;border-radius:var(--radius);font-family:'Syne',sans-serif;font-size:15px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:.04em;}
+.btn-again{background:linear-gradient(135deg,var(--accent),#a594f9);border:none;color:white;box-shadow:0 4px 20px rgba(124,106,247,.4);}
+.btn-again:active{transform:scale(.96);}
+.btn-back{background:var(--card);border:1.5px solid var(--border);color:var(--text);}
+.btn-back:active{border-color:var(--accent);color:var(--accent);}
+
+/* Toast */
+.toast{position:fixed;bottom:calc(20px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:rgba(24,24,36,.95);backdrop-filter:blur(12px);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:10px 20px;border-radius:100px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center;}
+.toast.show{opacity:1;}
+
+/* Install banner */
+.install-banner{
+  display:none;
+  margin:0 16px 12px;
+  background:linear-gradient(135deg,rgba(124,106,247,.15),rgba(247,106,143,.1));
+  border:1px solid rgba(124,106,247,.3);
+  border-radius:14px;padding:14px 16px;
+  flex-direction:row;align-items:center;gap:12px;
+}
+.install-banner.show{display:flex;}
+.install-text{flex:1;font-size:12px;font-family:'DM Mono',monospace;color:var(--text);line-height:1.5;}
+.install-text strong{color:var(--accent);display:block;margin-bottom:2px;}
+.btn-install{background:var(--accent);border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;padding:9px 14px;cursor:pointer;white-space:nowrap;}
+.btn-dismiss{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px;}
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<div class="app">
+
+  <!-- Install banner (shown when installable) -->
+  <div class="install-banner" id="installBanner">
+    <div class="install-text"><strong>📲 Add to Home Screen</strong>Tap to install as an app — works offline!</div>
+    <button class="btn-install" id="installBtn">Install</button>
+    <button class="btn-dismiss" onclick="dismissInstall()">×</button>
+  </div>
+
+  <!-- ===== MENU ===== -->
+  <div class="screen active" id="menuScreen">
+    <div class="top-bar">
+      <div class="logo"><div class="logo-dot"></div>Civics Quiz</div>
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">128 Q · 2025</div>
+    </div>
+    <div class="menu-scroll">
+      <div class="hero">
+        <h1>Master the<br><em>U.S. Civics</em><br>Test.</h1>
+        <p>// official USCIS questions · voice + text</p>
+      </div>
+
+      <div class="sec-label">Quiz mode</div>
+      <div class="mode-pills" style="margin-bottom:22px;">
+        <button class="mode-pill active" id="mVoice" onclick="setMode('voice')">🎙️ Voice</button>
+        <button class="mode-pill" id="mStudy" onclick="setMode('study')">📖 Study</button>
+      </div>
+
+      <div class="sec-label">Categories</div>
+      <div class="cat-wrap" id="catWrap"></div>
+
+      <div class="sec-label" style="margin-top:20px;">Number of questions</div>
+      <div class="count-row">
+        <span class="count-lbl">Questions:</span>
+        <input type="range" id="qSlider" min="5" max="128" value="20" oninput="onSlide()">
+        <span class="count-val" id="qVal">20</span>
+      </div>
+
+      <button class="btn-go" onclick="startQuiz()">Start Quiz</button>
+      <div style="height:20px;"></div>
+    </div>
+  </div>
+
+  <!-- ===== QUIZ ===== -->
+  <div class="screen" id="quizScreen">
+    <div class="top-bar">
+      <div class="logo"><div class="logo-dot"></div>Civics Quiz</div>
+      <div class="score-pill" id="scorePill" style="display:none">Score: <span id="sNum">0</span>/<span id="sTotal">0</span></div>
+    </div>
+    <div class="quiz-top">
+      <div class="prog-row">
+        <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+        <div class="prog-txt" id="progTxt">0 / 0</div>
+      </div>
+    </div>
+
+    <div class="q-card" id="qCard">
+      <div class="q-meta">
+        <div class="q-num" id="qNum">Q 1</div>
+        <div class="q-cat" id="qCat"></div>
+      </div>
+      <div class="q-text" id="qTxt">...</div>
+      <div class="result-badge" id="resBadge"></div>
+    </div>
+
+    <div class="quiz-scroll" id="quizScroll">
+      <div class="input-wrap">
+        <input type="text" class="input-box" id="ansInput" placeholder="Type your answer…" autocomplete="off" autocorrect="off" spellcheck="false" onkeydown="onKey(event)">
+        <button class="submit-btn" id="subBtn" onclick="submitText()">Submit Answer</button>
+      </div>
+
+      <div class="voice-strip" id="vStrip">
+        <span class="v-icon" id="vIcon">💬</span>
+        <span id="vTxt">Speak or type your answer</span>
+      </div>
+
+      <div class="reveal" id="reveal">
+        <div class="reveal-lbl">✓ Accepted answer</div>
+        <div class="reveal-main" id="revMain"></div>
+        <div class="reveal-also" id="revAlso"></div>
+      </div>
+    </div>
+
+    <div class="quiz-actions">
+      <button class="act-btn act-speak" id="speakBtn" onclick="toggleMic()">
+        <span class="act-icon" id="micIco">🎙️</span>
+        <span class="act-lbl">Speak</span>
+      </button>
+      <button class="act-btn act-show" id="showBtn" onclick="showAns()">
+        <span class="act-icon">👁️</span>
+        <span class="act-lbl">Show</span>
+      </button>
+      <button class="act-btn act-next big" id="nextBtn" onclick="nextQ()">
+        <span class="act-icon">→</span>
+        <span class="act-lbl">Next</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== RESULTS ===== -->
+  <div class="screen" id="resultsScreen">
+    <div class="top-bar">
+      <div class="logo"><div class="logo-dot"></div>Results</div>
+    </div>
+    <div class="results-body">
+      <div class="r-emoji" id="rEmoji">🏆</div>
+      <div class="r-title">Quiz Complete!</div>
+      <div class="r-pct" id="rPct">0%</div>
+      <div class="r-sub" id="rSub">0 of 0 correct</div>
+      <div class="pass-chip" id="rPass"></div>
+      <div class="r-grid">
+        <div class="r-box"><div class="r-num c" id="rC">0</div><div class="r-lbl">Correct</div></div>
+        <div class="r-box"><div class="r-num w" id="rW">0</div><div class="r-lbl">Wrong</div></div>
+        <div class="r-box"><div class="r-num s" id="rS">0</div><div class="r-lbl">Skipped</div></div>
+      </div>
+      <div class="r-btns">
+        <button class="btn-again" onclick="startQuiz()">Try Again</button>
+        <button class="btn-back" onclick="goMenu()">← Menu</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .app -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// =========================================================
+// DATA — all 128 official USCIS 2025 civics Q&A
+// =========================================================
+const QA = [
+  {q:"What is the form of government of the United States?",a:["Republic","Constitution-based federal republic","Representative democracy"],c:"Principles"},
+  {q:"What is the supreme law of the land?",a:["Constitution","U.S. Constitution"],c:"Principles"},
+  {q:"Name one thing the U.S. Constitution does.",a:["Forms the government","Defines powers of government","Defines the parts of government","Protects the rights of the people"],c:"Principles"},
+  {q:'What does "We the People" mean?',a:["Self-government","Popular sovereignty","Consent of the governed","People should govern themselves","Social contract"],c:"Principles"},
+  {q:"How are changes made to the U.S. Constitution?",a:["Amendments","The amendment process"],c:"Principles"},
+  {q:"What does the Bill of Rights protect?",a:["The basic rights of Americans","Rights of people living in the United States"],c:"Principles"},
+  {q:"How many amendments does the U.S. Constitution have?",a:["27","Twenty-seven"],c:"Principles"},
+  {q:"Why is the Declaration of Independence important?",a:["It says America is free from British control","It says all people are created equal","It identifies inherent rights","It identifies individual freedoms"],c:"Principles"},
+  {q:"What founding document said the American colonies were free from Britain?",a:["Declaration of Independence"],c:"Principles"},
+  {q:"Name two important ideas from the Declaration of Independence and the U.S. Constitution.",a:["Equality","Liberty","Social contract","Natural rights","Limited government","Self-government"],c:"Principles"},
+  {q:'The words "Life, Liberty, and the pursuit of Happiness" are in what founding document?',a:["Declaration of Independence"],c:"Principles"},
+  {q:"What is the economic system of the United States?",a:["Capitalism","Free market economy"],c:"Principles"},
+  {q:"What is the rule of law?",a:["Everyone must follow the law","Leaders must obey the law","Government must obey the law","No one is above the law"],c:"Principles"},
+  {q:"Many documents influenced the U.S. Constitution. Name one.",a:["Declaration of Independence","Articles of Confederation","Federalist Papers","Anti-Federalist Papers","Virginia Declaration of Rights","Fundamental Orders of Connecticut","Mayflower Compact","Iroquois Great Law of Peace"],c:"Principles"},
+  {q:"There are three branches of government. Why?",a:["So one part does not become too powerful","Checks and balances","Separation of powers"],c:"Principles"},
+  {q:"Name the three branches of government.",a:["Legislative, executive, and judicial","Congress, president, and the courts"],c:"System of Gov"},
+  {q:"The President is in charge of which branch of government?",a:["Executive branch"],c:"System of Gov"},
+  {q:"What part of the federal government writes laws?",a:["Congress","Legislature","Legislative branch"],c:"System of Gov"},
+  {q:"What are the two parts of the U.S. Congress?",a:["Senate and House of Representatives","Senate and House"],c:"System of Gov"},
+  {q:"Name one power of the U.S. Congress.",a:["Writes laws","Declares war","Makes the federal budget"],c:"System of Gov"},
+  {q:"How many U.S. senators are there?",a:["100","One hundred"],c:"System of Gov"},
+  {q:"How long is a term for a U.S. senator?",a:["6 years","Six years"],c:"System of Gov"},
+  {q:"How many voting members are in the House of Representatives?",a:["435","Four hundred thirty-five"],c:"System of Gov"},
+  {q:"How long is a term for a House of Representatives member?",a:["2 years","Two years"],c:"System of Gov"},
+  {q:"Why do U.S. representatives serve shorter terms than senators?",a:["To more closely follow public opinion"],c:"System of Gov"},
+  {q:"How many senators does each state have?",a:["2","Two"],c:"System of Gov"},
+  {q:"Why does each state have two senators?",a:["Equal representation","The Great Compromise","Connecticut Compromise"],c:"System of Gov"},
+  {q:"Who does a U.S. senator represent?",a:["Citizens of their state","People of their state"],c:"System of Gov"},
+  {q:"Who elects U.S. senators?",a:["Citizens from their state"],c:"System of Gov"},
+  {q:"Who does a House of Representatives member represent?",a:["Citizens in their district","People in their district"],c:"System of Gov"},
+  {q:"Who elects members of the House of Representatives?",a:["Citizens from their district"],c:"System of Gov"},
+  {q:"Some states have more representatives. Why?",a:["The state's population","They have more people","Some states have more people"],c:"System of Gov"},
+  {q:"The President is elected for how many years?",a:["4 years","Four years"],c:"System of Gov"},
+  {q:"The President can serve only two terms. Why?",a:["The 22nd Amendment","To keep the president from becoming too powerful"],c:"System of Gov"},
+  {q:"What is the name of the President of the United States now?",a:["Donald Trump","Trump"],c:"System of Gov"},
+  {q:"What is the name of the Vice President now?",a:["JD Vance","Vance"],c:"System of Gov"},
+  {q:"If the president can no longer serve, who becomes president?",a:["The Vice President"],c:"System of Gov"},
+  {q:"Name one power of the president.",a:["Signs bills into law","Vetoes bills","Enforces laws","Commander in Chief","Chief diplomat","Appoints federal judges"],c:"System of Gov"},
+  {q:"Who is Commander in Chief of the U.S. military?",a:["The President"],c:"System of Gov"},
+  {q:"Who signs bills to become laws?",a:["The President"],c:"System of Gov"},
+  {q:"Who vetoes bills?",a:["The President"],c:"System of Gov"},
+  {q:"Who appoints federal judges?",a:["The President"],c:"System of Gov"},
+  {q:"The executive branch has many parts. Name one.",a:["President","Cabinet","Federal departments and agencies"],c:"System of Gov"},
+  {q:"What does the President's Cabinet do?",a:["Advises the President"],c:"System of Gov"},
+  {q:"What are two Cabinet-level positions?",a:["Attorney General","Secretary of State","Secretary of Defense","Secretary of Treasury","Vice President","Secretary of Agriculture","Secretary of Commerce","Secretary of Education","Secretary of Energy","Secretary of Homeland Security"],c:"System of Gov"},
+  {q:"Why is the Electoral College important?",a:["It decides who is elected president","It provides a compromise between popular election and congressional selection"],c:"System of Gov"},
+  {q:"What is one part of the judicial branch?",a:["Supreme Court","Federal Courts"],c:"System of Gov"},
+  {q:"What does the judicial branch do?",a:["Reviews laws","Explains laws","Resolves disputes about the law","Decides if a law goes against the Constitution"],c:"System of Gov"},
+  {q:"What is the highest court in the United States?",a:["Supreme Court"],c:"System of Gov"},
+  {q:"How many seats are on the Supreme Court?",a:["9","Nine"],c:"System of Gov"},
+  {q:"How many Supreme Court justices decide a case?",a:["5","Five"],c:"System of Gov"},
+  {q:"How long do Supreme Court justices serve?",a:["For life","Lifetime appointment"],c:"System of Gov"},
+  {q:"Why do Supreme Court justices serve for life?",a:["To be independent of politics","To limit outside political influence"],c:"System of Gov"},
+  {q:"Name one power only for the federal government.",a:["Print paper money","Mint coins","Declare war","Create an army","Make treaties","Set foreign policy"],c:"System of Gov"},
+  {q:"Name one power only for the states.",a:["Provide schooling and education","Provide protection","Provide safety","Give a driver's license","Approve zoning and land use"],c:"System of Gov"},
+  {q:"What is the purpose of the 10th Amendment?",a:["Powers not given to the federal government belong to the states or to the people"],c:"System of Gov"},
+  {q:"There are four amendments about who can vote. Describe one.",a:["Citizens 18 and older can vote","You don't have to pay a poll tax to vote","Any citizen can vote","A male citizen of any race can vote"],c:"Rights"},
+  {q:"Who can vote in federal elections and serve on a jury?",a:["Citizens","U.S. citizens"],c:"Rights"},
+  {q:"What are three rights of everyone living in the United States?",a:["Freedom of expression","Freedom of speech","Freedom of assembly","Freedom to petition the government","Freedom of religion","The right to bear arms"],c:"Rights"},
+  {q:"What do we show loyalty to in the Pledge of Allegiance?",a:["The United States","The flag"],c:"Rights"},
+  {q:"Name two promises new citizens make in the Oath of Allegiance.",a:["Give up loyalty to other countries","Defend the Constitution","Obey the laws of the United States","Serve in the military","Be loyal to the United States"],c:"Rights"},
+  {q:"How can people become United States citizens?",a:["Be born in the United States","Naturalize","Derive citizenship"],c:"Rights"},
+  {q:"What are two examples of civic participation?",a:["Vote","Run for office","Join a political party","Help with a campaign","Join a civic group","Contact elected officials"],c:"Rights"},
+  {q:"What is one way Americans can serve their country?",a:["Vote","Pay taxes","Obey the law","Serve in the military","Run for office"],c:"Rights"},
+  {q:"Why is it important to pay federal taxes?",a:["Required by law","All people pay to fund the federal government","Civic duty"],c:"Rights"},
+  {q:"Why must men age 18–25 register for the Selective Service?",a:["Required by law","Civic duty","Makes the draft fair"],c:"Rights"},
+  {q:"The colonists came to America for many reasons. Name one.",a:["Freedom","Political liberty","Religious freedom","Economic opportunity","Escape persecution"],c:"Colonial Era"},
+  {q:"Who lived in America before the Europeans arrived?",a:["American Indians","Native Americans"],c:"Colonial Era"},
+  {q:"What group of people was taken and sold as slaves?",a:["Africans","People from Africa"],c:"Colonial Era"},
+  {q:"What war did Americans fight to win independence from Britain?",a:["American Revolution","Revolutionary War","War for Independence"],c:"Colonial Era"},
+  {q:"Name one reason why Americans declared independence from Britain.",a:["High taxes","Taxation without representation","British soldiers stayed in Americans' houses","They did not have self-government","Boston Massacre","Boston Tea Party","Stamp Act"],c:"Colonial Era"},
+  {q:"Who wrote the Declaration of Independence?",a:["Thomas Jefferson","Jefferson"],c:"Colonial Era"},
+  {q:"When was the Declaration of Independence adopted?",a:["July 4, 1776","1776"],c:"Colonial Era"},
+  {q:"The American Revolution had many important events. Name one.",a:["Battle of Bunker Hill","Declaration of Independence","Washington Crossing the Delaware","Battle of Saratoga","Valley Forge","Battle of Yorktown"],c:"Colonial Era"},
+  {q:"There were 13 original states. Name five.",a:["New Hampshire","Massachusetts","Rhode Island","Connecticut","New York","New Jersey","Pennsylvania","Delaware","Maryland","Virginia","North Carolina","South Carolina","Georgia"],c:"Colonial Era"},
+  {q:"What founding document was written in 1787?",a:["U.S. Constitution","Constitution"],c:"Colonial Era"},
+  {q:"The Federalist Papers supported the U.S. Constitution. Name one writer.",a:["James Madison","Madison","Alexander Hamilton","Hamilton","John Jay","Jay","Publius"],c:"Colonial Era"},
+  {q:"Why were the Federalist Papers important?",a:["They helped people understand the Constitution","They supported passing the Constitution"],c:"Colonial Era"},
+  {q:"Benjamin Franklin is famous for many things. Name one.",a:["Founded the first free public libraries","First Postmaster General","Helped write the Declaration of Independence","Inventor","U.S. diplomat"],c:"Colonial Era"},
+  {q:"George Washington is famous for many things. Name one.",a:["Father of Our Country","First president","General of the Continental Army","President of the Constitutional Convention"],c:"Colonial Era"},
+  {q:"Thomas Jefferson is famous for many things. Name one.",a:["Writer of the Declaration of Independence","Third president","Louisiana Purchase","First Secretary of State","Founded University of Virginia"],c:"Colonial Era"},
+  {q:"James Madison is famous for many things. Name one.",a:["Father of the Constitution","Fourth president","President during the War of 1812","Writer of the Federalist Papers"],c:"Colonial Era"},
+  {q:"Alexander Hamilton is famous for many things. Name one.",a:["First Secretary of the Treasury","Writer of the Federalist Papers","Helped establish the First Bank of the United States","Aide to General George Washington"],c:"Colonial Era"},
+  {q:"What territory did the United States buy from France in 1803?",a:["Louisiana Territory","Louisiana"],c:"1800s"},
+  {q:"Name one war fought by the United States in the 1800s.",a:["War of 1812","Mexican-American War","Civil War","Spanish-American War"],c:"1800s"},
+  {q:"Name the U.S. war between the North and the South.",a:["The Civil War","Civil War"],c:"1800s"},
+  {q:"The Civil War had many important events. Name one.",a:["Battle of Fort Sumter","Emancipation Proclamation","Battle of Gettysburg","Sherman's March","Surrender at Appomattox","Lincoln was assassinated"],c:"1800s"},
+  {q:"Abraham Lincoln is famous for many things. Name one.",a:["Freed the slaves","Emancipation Proclamation","Saved the Union","Led the United States during the Civil War","16th president","Delivered the Gettysburg Address"],c:"1800s"},
+  {q:"What did the Emancipation Proclamation do?",a:["Freed the slaves","Freed slaves in the Confederacy","Freed slaves in most Southern states"],c:"1800s"},
+  {q:"What U.S. war ended slavery?",a:["The Civil War","Civil War"],c:"1800s"},
+  {q:"What amendment says all persons born or naturalized in the U.S. are citizens?",a:["14th Amendment","Fourteenth Amendment"],c:"1800s"},
+  {q:"When did all men get the right to vote?",a:["After the Civil War","During Reconstruction","15th Amendment","1870"],c:"1800s"},
+  {q:"Name one leader of the women's rights movement in the 1800s.",a:["Susan B. Anthony","Elizabeth Cady Stanton","Sojourner Truth","Harriet Tubman","Lucretia Mott","Lucy Stone"],c:"1800s"},
+  {q:"Name one war fought by the United States in the 1900s.",a:["World War I","World War II","Korean War","Vietnam War","Gulf War"],c:"Recent History"},
+  {q:"Why did the United States enter World War I?",a:["Because Germany attacked U.S. ships","To support the Allied Powers","To oppose the Central Powers"],c:"Recent History"},
+  {q:"When did all women get the right to vote?",a:["1920","After World War I","19th Amendment"],c:"Recent History"},
+  {q:"What was the Great Depression?",a:["Longest economic recession in modern history"],c:"Recent History"},
+  {q:"When did the Great Depression start?",a:["1929","The Great Crash","Stock market crash of 1929"],c:"Recent History"},
+  {q:"Who was president during the Great Depression and World War II?",a:["Franklin Roosevelt","Roosevelt","FDR"],c:"Recent History"},
+  {q:"Why did the United States enter World War II?",a:["Bombing of Pearl Harbor","Japanese attacked Pearl Harbor","To support the Allied Powers","To oppose the Axis Powers"],c:"Recent History"},
+  {q:"Dwight Eisenhower is famous for many things. Name one.",a:["General during World War II","President during the Korean War","34th president","Signed the Federal-Aid Highway Act"],c:"Recent History"},
+  {q:"Who was the United States' main rival during the Cold War?",a:["Soviet Union","USSR","Russia"],c:"Recent History"},
+  {q:"During the Cold War, what was one main concern of the United States?",a:["Communism","Nuclear war"],c:"Recent History"},
+  {q:"Why did the United States enter the Korean War?",a:["To stop the spread of communism"],c:"Recent History"},
+  {q:"Why did the United States enter the Vietnam War?",a:["To stop the spread of communism"],c:"Recent History"},
+  {q:"What did the civil rights movement do?",a:["Fought to end racial discrimination"],c:"Recent History"},
+  {q:"Martin Luther King, Jr. is famous for many things. Name one.",a:["Fought for civil rights","Worked for equality for all Americans"],c:"Recent History"},
+  {q:"Why did the United States enter the Persian Gulf War?",a:["To force the Iraqi military from Kuwait"],c:"Recent History"},
+  {q:"What major event happened on September 11, 2001?",a:["Terrorists attacked the United States","Terrorists crashed planes into the World Trade Center","Terrorists crashed a plane into the Pentagon"],c:"Recent History"},
+  {q:"Name one U.S. military conflict after September 11, 2001.",a:["War on Terror","War in Afghanistan","War in Iraq"],c:"Recent History"},
+  {q:"Name one American Indian tribe in the United States.",a:["Apache","Cherokee","Navajo","Sioux","Cheyenne","Lakota","Mohawk","Seminole","Choctaw","Creek","Crow","Pueblo","Blackfeet","Chippewa"],c:"Recent History"},
+  {q:"Name one example of an American innovation.",a:["Light bulb","Automobile","Skyscrapers","Airplane","Assembly line","Landing on the moon","Integrated circuit"],c:"Recent History"},
+  {q:"What is the capital of the United States?",a:["Washington D.C.","Washington"],c:"Symbols"},
+  {q:"Where is the Statue of Liberty?",a:["New York Harbor","Liberty Island","New York","New Jersey"],c:"Symbols"},
+  {q:"Why does the flag have 13 stripes?",a:["Because there were 13 original colonies","The stripes represent the original colonies"],c:"Symbols"},
+  {q:"Why does the flag have 50 stars?",a:["One star for each state","Each star represents a state","Because there are 50 states"],c:"Symbols"},
+  {q:"What is the name of the national anthem?",a:["The Star-Spangled Banner","Star-Spangled Banner"],c:"Symbols"},
+  {q:'What does "E Pluribus Unum" mean?',a:["Out of many, one","We all become one"],c:"Symbols"},
+  {q:"What is Independence Day?",a:["A holiday to celebrate U.S. independence from Britain","The country's birthday"],c:"Holidays"},
+  {q:"Name three national U.S. holidays.",a:["New Year's Day","Martin Luther King Jr. Day","Presidents Day","Memorial Day","Juneteenth","Independence Day","Labor Day","Columbus Day","Veterans Day","Thanksgiving","Christmas"],c:"Holidays"},
+  {q:"What is Memorial Day?",a:["A holiday to honor soldiers who died in military service"],c:"Holidays"},
+  {q:"What is Veterans Day?",a:["A holiday to honor people in the U.S. military","A holiday to honor people who have served in the U.S. military"],c:"Holidays"},
+];
+
+// =========================================================
+// STATE
+// =========================================================
+const CATS = [...new Set(QA.map(q=>q.c))];
+let selCats = new Set(CATS);
+let mode = 'voice';
+let qCount = 20;
+let deck = [], idx = 0;
+let score = {c:0,w:0,s:0};
+let rec = null;
+let answered = false;
+let deferredPrompt = null;
+
+// =========================================================
+// INSTALL PWA
+// =========================================================
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+document.getElementById('installBtn').onclick = async () => {
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const {outcome} = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+  if(outcome==='accepted') toast('🎉 Installing…');
+};
+function dismissInstall(){document.getElementById('installBanner').classList.remove('show');}
+window.addEventListener('appinstalled', () => toast('✅ Installed! Find it on your home screen.'));
+
+// =========================================================
+// SERVICE WORKER
+// =========================================================
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+// =========================================================
+// TOAST
+// =========================================================
+let toastTimer;
+function toast(msg, dur=3000){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+// =========================================================
+// MENU
+// =========================================================
+function buildChips(){
+  const wrap=document.getElementById('catWrap');wrap.innerHTML='';
+  // All
+  const all=mkChip('All (128)','all');all.classList.add('on');
+  all.onclick=()=>toggleAll();wrap.appendChild(all);
+  CATS.forEach(cat=>{
+    const n=QA.filter(q=>q.c===cat).length;
+    const ch=mkChip(`${cat} (${n})`,cat);ch.classList.add('on');
+    ch.onclick=()=>toggleCat(cat,ch);wrap.appendChild(ch);
+  });
+}
+function mkChip(txt,id){const d=document.createElement('div');d.className='chip';d.id='ch-'+id;d.textContent=txt;return d;}
+function toggleAll(){
+  if(selCats.size===CATS.length){selCats.clear();document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));}
+  else{selCats=new Set(CATS);document.querySelectorAll('.chip').forEach(c=>c.classList.add('on'));}
+  updateMax();
+}
+function toggleCat(cat,el){
+  selCats.has(cat)?selCats.delete(cat):selCats.add(cat);
+  el.classList.toggle('on',selCats.has(cat));
+  document.getElementById('ch-all').classList.toggle('on',selCats.size===CATS.length);
+  updateMax();
+}
+function updateMax(){
+  const pool=QA.filter(q=>selCats.has(q.c));
+  const s=document.getElementById('qSlider');
+  s.max=pool.length;s.value=Math.min(parseInt(s.value),pool.length);
+  onSlide();
+}
+function onSlide(){qCount=parseInt(document.getElementById('qSlider').value);document.getElementById('qVal').textContent=qCount;}
+function setMode(m){
+  mode=m;
+  document.getElementById('mVoice').classList.toggle('active',m==='voice');
+  document.getElementById('mStudy').classList.toggle('active',m==='study');
+}
+
+// =========================================================
+// QUIZ
+// =========================================================
+function startQuiz(){
+  const pool=QA.filter(q=>selCats.has(q.c));
+  if(!pool.length){toast('⚠️ Select at least one category');return;}
+  deck=shuffle([...pool]).slice(0,qCount);
+  idx=0;score={c:0,w:0,s:0};
+  document.getElementById('scorePill').style.display='flex';
+  document.getElementById('sTotal').textContent=deck.length;
+  updateScore();
+  show('quizScreen');
+  loadQ();
+}
+
+function updateScore(){document.getElementById('sNum').textContent=score.c;}
+
+function loadQ(){
+  if(idx>=deck.length){endQuiz();return;}
+  answered=false;
+  const qa=deck[idx];
+  document.getElementById('qNum').textContent=`Q ${idx+1}`;
+  document.getElementById('qCat').textContent=qa.c;
+  document.getElementById('qTxt').textContent=qa.q;
+  document.getElementById('resBadge').className='result-badge';
+  document.getElementById('resBadge').textContent='';
+  document.getElementById('revMain').textContent=qa.a[0];
+  document.getElementById('revAlso').textContent=qa.a.length>1?'Also: '+qa.a.slice(1,5).join(' · ')+(qa.a.length>5?' …':''):'';
+  document.getElementById('reveal').classList.remove('show');
+  // Reset voice strip
+  setVStrip('💬','Speak or type your answer','');
+  // Reset input
+  const inp=document.getElementById('ansInput');
+  inp.value='';inp.disabled=false;inp.readOnly=false;
+  document.getElementById('subBtn').disabled=false;
+  // Buttons
+  document.getElementById('speakBtn').disabled=mode==='study';
+  document.getElementById('speakBtn').style.opacity=mode==='study'?'0.3':'1';
+  document.getElementById('showBtn').disabled=false;
+  document.getElementById('nextBtn').disabled=false;
+  // Progress
+  document.getElementById('progFill').style.width=`${(idx/deck.length)*100}%`;
+  document.getElementById('progTxt').textContent=`${idx} / ${deck.length}`;
+  // Scroll top
+  document.getElementById('quizScroll').scrollTop=0;
+  // Read question aloud
+  speakTTS(qa.q);
+  // Focus input (slight delay so keyboard doesn't interrupt TTS on some devices)
+  setTimeout(()=>{if(!answered)document.getElementById('ansInput').focus();},400);
+}
+
+function setVStrip(icon,txt,cls){
+  document.getElementById('vIcon').textContent=icon;
+  document.getElementById('vTxt').textContent=txt;
+  document.getElementById('vStrip').className='voice-strip'+(cls?' '+cls:'');
+}
+
+// Text submit
+function onKey(e){if(e.key==='Enter')submitText();}
+function submitText(){
+  const v=document.getElementById('ansInput').value.trim();
+  if(!v){toast('⚠️ Type something first');return;}
+  if(answered)return;
+  evaluate(v);
+}
+
+// MIC
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function toggleMic(){
+  if(answered)return;
+  if(!SR){toast('❌ Open in Chrome for mic support');return;}
+  const btn=document.getElementById('speakBtn');
+  if(rec){rec.abort();rec=null;resetMic();return;}
+  btn.classList.add('rec');
+  document.getElementById('micIco').textContent='⏹️';
+  setVStrip('🎤','Listening… speak now','listening');
+  rec=new SR();
+  rec.lang='en-US';rec.interimResults=false;rec.maxAlternatives=5;
+  rec.onresult=e=>{
+    const qa=deck[idx];
+    let best=e.results[0][0].transcript;
+    for(let i=0;i<e.results[0].length;i++){
+      if(checkAns(e.results[0][i].transcript,qa.a)){best=e.results[0][i].transcript;break;}
+    }
+    document.getElementById('ansInput').value=best;
+    evaluate(best);
+  };
+  rec.onerror=e=>{
+    if(e.error==='not-allowed')toast('❌ Mic blocked — tap the 🔒 icon in Chrome and allow Microphone');
+    else if(e.error!=='aborted')toast('⚠️ Mic error: '+e.error);
+    resetMic();
+  };
+  rec.onend=resetMic;
+  rec.start();
+}
+function resetMic(){
+  const btn=document.getElementById('speakBtn');
+  btn.classList.remove('rec');
+  document.getElementById('micIco').textContent='🎙️';
+  rec=null;
+}
+
+function evaluate(text){
+  const qa=deck[idx];
+  const ok=checkAns(text,qa.a);
+  answered=true;
+  document.getElementById('ansInput').disabled=true;
+  document.getElementById('subBtn').disabled=true;
+  if(ok){
+    score.c++;
+    setVStrip('✓',text,'ok');
+    document.getElementById('resBadge').textContent='✓ CORRECT';
+    document.getElementById('resBadge').className='result-badge ok';
+    speakTTS('Correct!');
+  } else {
+    score.w++;
+    setVStrip('✗',text,'no');
+    document.getElementById('resBadge').textContent='✗ INCORRECT';
+    document.getElementById('resBadge').className='result-badge no';
+    document.getElementById('reveal').classList.add('show');
+    speakTTS('Incorrect. The answer is: '+qa.a[0]);
+  }
+  updateScore();
+}
+
+function showAns(){
+  const qa=deck[idx];
+  document.getElementById('reveal').classList.add('show');
+  if(!answered){
+    answered=true;score.s++;
+    document.getElementById('resBadge').textContent='— SKIPPED';
+    document.getElementById('resBadge').className='result-badge sk';
+    document.getElementById('ansInput').disabled=true;
+    document.getElementById('subBtn').disabled=true;
+    updateScore();
+  }
+  speakTTS(qa.a[0]);
+}
+
+function nextQ(){
+  if(rec){rec.abort();rec=null;resetMic();}
+  window.speechSynthesis&&window.speechSynthesis.cancel();
+  if(!answered){score.s++;updateScore();}
+  idx++;loadQ();
+}
+
+// =========================================================
+// TTS
+// =========================================================
+function speakTTS(text){
+  if(!window.speechSynthesis)return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=0.9;u.pitch=1;
+  const voices=window.speechSynthesis.getVoices();
+  const v=voices.find(v=>v.lang==='en-US'&&(v.name.includes('Google')||v.name.includes('Samantha')||v.name.includes('Alex')))||voices.find(v=>v.lang.startsWith('en'));
+  if(v)u.voice=v;
+  window.speechSynthesis.speak(u);
+}
+window.speechSynthesis&&window.speechSynthesis.addEventListener('voiceschanged',()=>{});
+
+// =========================================================
+// RESULTS
+// =========================================================
+function endQuiz(){
+  const total=deck.length;
+  const pct=Math.round((score.c/total)*100);
+  document.getElementById('rPct').textContent=pct+'%';
+  document.getElementById('rSub').textContent=`${score.c} of ${total} correct`;
+  document.getElementById('rC').textContent=score.c;
+  document.getElementById('rW').textContent=score.w;
+  document.getElementById('rS').textContent=score.s;
+  document.getElementById('rEmoji').textContent=pct===100?'🏆':pct>=80?'🌟':pct>=60?'👍':pct>=40?'💪':'📚';
+  const p=document.getElementById('rPass');
+  p.textContent=pct>=60?'✓ PASSING SCORE':'✗ Below passing — keep studying!';
+  p.className='pass-chip '+(pct>=60?'y':'n');
+  document.getElementById('progFill').style.width='100%';
+  document.getElementById('scorePill').style.display='none';
+  show('resultsScreen');
+  speakTTS(`Quiz complete! You scored ${pct} percent. ${score.c} correct out of ${total}.`);
+}
+
+function goMenu(){
+  window.speechSynthesis&&window.speechSynthesis.cancel();
+  if(rec){rec.abort();rec=null;}
+  document.getElementById('scorePill').style.display='none';
+  show('menuScreen');
+}
+
+// =========================================================
+// UTILS
+// =========================================================
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function norm(s){return s.toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();}
+function checkAns(spoken,answers){
+  const s=norm(spoken);
+  return answers.some(a=>{
+    const c=norm(a);
+    if(s===c||s.includes(c))return true;
+    const w=c.split(/\s+/).filter(x=>x.length>2);
+    return w.length>0&&w.every(x=>s.includes(x));
+  });
+}
+
+// =========================================================
+// INIT
+// =========================================================
+buildChips();onSlide();
+</script>
+</body>
+</html>
